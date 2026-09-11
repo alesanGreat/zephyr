@@ -1,0 +1,241 @@
+name: Validate pending VirtIO PR fixes
+on:
+  push:
+    branches:
+      - validation/virtio-pr-batch-20260910
+permissions:
+  contents: read
+jobs:
+  test:
+    runs-on: ubuntu-24.04
+    env:
+      ZEPHYR_TOOLCHAIN_VARIANT: zephyr
+    container:
+      image: ghcr.io/zephyrproject-rtos/ci:v0.29.2
+      options: --user root
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v4
+        with:
+          fetch-depth: 0
+      - name: Initialize west workspace
+        id: setup
+        shell: bash
+        run: |
+          set -euo pipefail
+          git config --global --add safe.directory "$GITHUB_WORKSPACE"
+          cd ..
+          west init -l "$(basename "$GITHUB_WORKSPACE")"
+          west update --narrow -o=--depth=1
+          west zephyr-export
+      - name: Validate PR 117015
+        id: pr117015
+        if: ${{ !cancelled() && steps.setup.outcome == 'success' }}
+        shell: bash
+        run: |
+          set -euo pipefail
+          git fetch origin refs/validation/117015-6f19aa424ce6
+          git checkout --detach FETCH_HEAD
+          test "$(git rev-parse HEAD)" = "6f19aa424ce6488feca4aef8c1e29971f2fd7215"
+          export ZEPHYR_SDK_INSTALL_DIR="/opt/toolchains/zephyr-sdk-$(cat SDK_VERSION)"
+          git diff --check HEAD^ HEAD
+          git format-patch --stdout --no-signature -1 HEAD | perl scripts/checkpatch.pl --strict -
+          west twister --outdir /tmp/twister-117015 -T tests/drivers/virtio/pci_status -p qemu_malta -p qemu_malta/qemu_malta/be -p qemu_x86 -p qemu_cortex_a53 -j 2 --inline-logs -v
+          python - <<'PY'
+          import json
+          suites = json.load(open('/tmp/twister-117015/twister.json'))['testsuites']
+          passed = [s for s in suites if s.get('status') == 'passed' and s.get('runnable', True)]
+          assert len(passed) == 4, 'Unexpected executed configuration count: ' + repr([(s['name'], s['platform'], s.get('status')) for s in suites])
+          assert all(s.get('testcases') and all(t.get('status') == 'passed' for t in s['testcases']) for s in passed), 'A testcase did not execute successfully'
+          print('VERIFIED_PR=117015 SHA=6f19aa424ce6488feca4aef8c1e29971f2fd7215 EXECUTED_CONFIGS=' + str(len(passed)))
+          PY
+      - name: Validate PR 116999
+        id: pr116999
+        if: ${{ !cancelled() && steps.setup.outcome == 'success' }}
+        shell: bash
+        run: |
+          set -euo pipefail
+          git fetch origin refs/validation/116999-706d6cb0a6db
+          git checkout --detach FETCH_HEAD
+          test "$(git rev-parse HEAD)" = "706d6cb0a6db9e0bbc7d5735060a8b0beeb0bb7b"
+          export ZEPHYR_SDK_INSTALL_DIR="/opt/toolchains/zephyr-sdk-$(cat SDK_VERSION)"
+          git diff --check HEAD^ HEAD
+          git format-patch --stdout --no-signature -1 HEAD | perl scripts/checkpatch.pl --strict -
+          west twister --outdir /tmp/twister-116999 -T tests/drivers/virtio/pci -p qemu_malta -j 2 --inline-logs -v
+          python - <<'PY'
+          import json
+          suites = json.load(open('/tmp/twister-116999/twister.json'))['testsuites']
+          passed = [s for s in suites if s.get('status') == 'passed' and s.get('runnable', True)]
+          assert len(passed) == 1, 'Unexpected executed configuration count: ' + repr([(s['name'], s['platform'], s.get('status')) for s in suites])
+          assert all(s.get('testcases') and all(t.get('status') == 'passed' for t in s['testcases']) for s in passed), 'A testcase did not execute successfully'
+          print('VERIFIED_PR=116999 SHA=706d6cb0a6db9e0bbc7d5735060a8b0beeb0bb7b EXECUTED_CONFIGS=' + str(len(passed)))
+          PY
+      - name: Validate PR 117541
+        id: pr117541
+        if: ${{ !cancelled() && steps.setup.outcome == 'success' }}
+        shell: bash
+        run: |
+          set -euo pipefail
+          git fetch origin refs/validation/117541-986edbd9f9c8
+          git checkout --detach FETCH_HEAD
+          test "$(git rev-parse HEAD)" = "986edbd9f9c8f2698c3d798cbcd0072cc985b4e9"
+          export ZEPHYR_SDK_INSTALL_DIR="/opt/toolchains/zephyr-sdk-$(cat SDK_VERSION)"
+          git diff --check HEAD^ HEAD
+          git format-patch --stdout --no-signature -1 HEAD | perl scripts/checkpatch.pl --strict -
+          west twister --outdir /tmp/twister-117541 -T tests/drivers/virtio/used_ring_endianness -p qemu_leon3 -p qemu_malta -j 2 --inline-logs -v
+          python - <<'PY'
+          import json
+          suites = json.load(open('/tmp/twister-117541/twister.json'))['testsuites']
+          passed = [s for s in suites if s.get('status') == 'passed' and s.get('runnable', True)]
+          assert len(passed) == 2, 'Unexpected executed configuration count: ' + repr([(s['name'], s['platform'], s.get('status')) for s in suites])
+          assert all(s.get('testcases') and all(t.get('status') == 'passed' for t in s['testcases']) for s in passed), 'A testcase did not execute successfully'
+          print('VERIFIED_PR=117541 SHA=986edbd9f9c8f2698c3d798cbcd0072cc985b4e9 EXECUTED_CONFIGS=' + str(len(passed)))
+          PY
+      - name: Validate PR 117543
+        id: pr117543
+        if: ${{ !cancelled() && steps.setup.outcome == 'success' }}
+        shell: bash
+        run: |
+          set -euo pipefail
+          git fetch origin refs/validation/117543-afdaf81efcba
+          git checkout --detach FETCH_HEAD
+          test "$(git rev-parse HEAD)" = "afdaf81efcba50ab1c350c34069be264ab4ea112"
+          export ZEPHYR_SDK_INSTALL_DIR="/opt/toolchains/zephyr-sdk-$(cat SDK_VERSION)"
+          git diff --check HEAD^ HEAD
+          git format-patch --stdout --no-signature -1 HEAD | perl scripts/checkpatch.pl --strict -
+          west twister --outdir /tmp/twister-117543 -T tests/drivers/virtio/pci_cap_bounds -p qemu_malta -j 2 --inline-logs -v
+          python - <<'PY'
+          import json
+          suites = json.load(open('/tmp/twister-117543/twister.json'))['testsuites']
+          passed = [s for s in suites if s.get('status') == 'passed' and s.get('runnable', True)]
+          assert len(passed) == 1, 'Unexpected executed configuration count: ' + repr([(s['name'], s['platform'], s.get('status')) for s in suites])
+          assert all(s.get('testcases') and all(t.get('status') == 'passed' for t in s['testcases']) for s in passed), 'A testcase did not execute successfully'
+          print('VERIFIED_PR=117543 SHA=afdaf81efcba50ab1c350c34069be264ab4ea112 EXECUTED_CONFIGS=' + str(len(passed)))
+          PY
+      - name: Validate PR 117544
+        id: pr117544
+        if: ${{ !cancelled() && steps.setup.outcome == 'success' }}
+        shell: bash
+        run: |
+          set -euo pipefail
+          git fetch origin refs/validation/117544-335db4533969
+          git checkout --detach FETCH_HEAD
+          test "$(git rev-parse HEAD)" = "335db4533969eed58f6d879e57402bddf5b1266c"
+          export ZEPHYR_SDK_INSTALL_DIR="/opt/toolchains/zephyr-sdk-$(cat SDK_VERSION)"
+          git diff --check HEAD^ HEAD
+          git format-patch --stdout --no-signature -1 HEAD | perl scripts/checkpatch.pl --strict -
+          west twister --outdir /tmp/twister-117544 -T tests/drivers/virtio/pci_write64_endianness -p qemu_malta -p qemu_malta/qemu_malta/be -j 2 --inline-logs -v
+          python - <<'PY'
+          import json
+          suites = json.load(open('/tmp/twister-117544/twister.json'))['testsuites']
+          passed = [s for s in suites if s.get('status') == 'passed' and s.get('runnable', True)]
+          assert len(passed) == 2, 'Unexpected executed configuration count: ' + repr([(s['name'], s['platform'], s.get('status')) for s in suites])
+          assert all(s.get('testcases') and all(t.get('status') == 'passed' for t in s['testcases']) for s in passed), 'A testcase did not execute successfully'
+          print('VERIFIED_PR=117544 SHA=335db4533969eed58f6d879e57402bddf5b1266c EXECUTED_CONFIGS=' + str(len(passed)))
+          PY
+      - name: Validate PR 117545
+        id: pr117545
+        if: ${{ !cancelled() && steps.setup.outcome == 'success' }}
+        shell: bash
+        run: |
+          set -euo pipefail
+          git fetch origin refs/validation/117545-0381f1359cb2
+          git checkout --detach FETCH_HEAD
+          test "$(git rev-parse HEAD)" = "0381f1359cb2d6d15e2bdc6b0104af0890c16cda"
+          export ZEPHYR_SDK_INSTALL_DIR="/opt/toolchains/zephyr-sdk-$(cat SDK_VERSION)"
+          git diff --check HEAD^ HEAD
+          git format-patch --stdout --no-signature -1 HEAD | perl scripts/checkpatch.pl --strict -
+          west twister --outdir /tmp/twister-117545 -T tests/drivers/virtio/zero_size_queue_activation -p qemu_leon3 -p qemu_malta -j 2 --inline-logs -v
+          python - <<'PY'
+          import json
+          suites = json.load(open('/tmp/twister-117545/twister.json'))['testsuites']
+          passed = [s for s in suites if s.get('status') == 'passed' and s.get('runnable', True)]
+          assert len(passed) == 2, 'Unexpected executed configuration count: ' + repr([(s['name'], s['platform'], s.get('status')) for s in suites])
+          assert all(s.get('testcases') and all(t.get('status') == 'passed' for t in s['testcases']) for s in passed), 'A testcase did not execute successfully'
+          print('VERIFIED_PR=117545 SHA=0381f1359cb2d6d15e2bdc6b0104af0890c16cda EXECUTED_CONFIGS=' + str(len(passed)))
+          PY
+      - name: Verify regression sensitivity PR 117015
+        if: ${{ !cancelled() && steps.pr117015.outcome == 'success' }}
+        shell: bash
+        run: |
+          set -euo pipefail
+          git fetch origin refs/validation/117015-6f19aa424ce6
+          git checkout --detach FETCH_HEAD
+          test "$(git rev-parse HEAD)" = "6f19aa424ce6488feca4aef8c1e29971f2fd7215"
+          export ZEPHYR_SDK_INSTALL_DIR="/opt/toolchains/zephyr-sdk-$(cat SDK_VERSION)"
+          git restore --source=HEAD^ -- drivers/virtio/virtio_pci.c
+          set +e
+          west twister --outdir /tmp/twister-negative-117015 -T tests/drivers/virtio/pci_status -p qemu_malta/qemu_malta/be -j 2 --inline-logs -v
+          negative_exit=$?
+          set -e
+          git restore --source=HEAD -- drivers/virtio/virtio_pci.c
+          test "$negative_exit" -ne 0
+          python - <<'PY'
+          import json
+          suites = json.load(open('/tmp/twister-negative-117015/twister.json'))['testsuites']
+          executed = [s for s in suites if s.get('status') != 'filtered']
+          assert len(executed) == 1, 'Expected exactly one regression execution'
+          assert executed[0].get('status') == 'failed', 'Negative control must execute and fail, not merely fail to build'
+          assert any(t.get('status') == 'failed' for t in executed[0]['testcases']), 'No assertion caught the original bug'
+          print('REGRESSION_DETECTED_PR=117015 FIX_SHA=6f19aa424ce6488feca4aef8c1e29971f2fd7215')
+          PY
+      - name: Verify regression sensitivity PR 117541
+        if: ${{ !cancelled() && steps.pr117541.outcome == 'success' }}
+        shell: bash
+        run: |
+          set -euo pipefail
+          git fetch origin refs/validation/117541-986edbd9f9c8
+          git checkout --detach FETCH_HEAD
+          test "$(git rev-parse HEAD)" = "986edbd9f9c8f2698c3d798cbcd0072cc985b4e9"
+          export ZEPHYR_SDK_INSTALL_DIR="/opt/toolchains/zephyr-sdk-$(cat SDK_VERSION)"
+          git restore --source=HEAD^ -- drivers/virtio/virtio_common.c
+          set +e
+          west twister --outdir /tmp/twister-negative-117541 -T tests/drivers/virtio/used_ring_endianness -p qemu_leon3 -j 2 --inline-logs -v
+          negative_exit=$?
+          set -e
+          git restore --source=HEAD -- drivers/virtio/virtio_common.c
+          test "$negative_exit" -ne 0
+          python - <<'PY'
+          import json
+          suites = json.load(open('/tmp/twister-negative-117541/twister.json'))['testsuites']
+          executed = [s for s in suites if s.get('status') != 'filtered']
+          assert len(executed) == 1, 'Expected exactly one regression execution'
+          assert executed[0].get('status') == 'failed', 'Negative control must execute and fail, not merely fail to build'
+          assert any(t.get('status') == 'failed' for t in executed[0]['testcases']), 'No assertion caught the original bug'
+          print('REGRESSION_DETECTED_PR=117541 FIX_SHA=986edbd9f9c8f2698c3d798cbcd0072cc985b4e9')
+          PY
+      - name: Verify regression sensitivity PR 117544
+        if: ${{ !cancelled() && steps.pr117544.outcome == 'success' }}
+        shell: bash
+        run: |
+          set -euo pipefail
+          git fetch origin refs/validation/117544-335db4533969
+          git checkout --detach FETCH_HEAD
+          test "$(git rev-parse HEAD)" = "335db4533969eed58f6d879e57402bddf5b1266c"
+          export ZEPHYR_SDK_INSTALL_DIR="/opt/toolchains/zephyr-sdk-$(cat SDK_VERSION)"
+          git restore --source=HEAD^ -- drivers/virtio/virtio_pci.c
+          set +e
+          west twister --outdir /tmp/twister-negative-117544 -T tests/drivers/virtio/pci_write64_endianness -p qemu_malta/qemu_malta/be -j 2 --inline-logs -v
+          negative_exit=$?
+          set -e
+          git restore --source=HEAD -- drivers/virtio/virtio_pci.c
+          test "$negative_exit" -ne 0
+          python - <<'PY'
+          import json
+          suites = json.load(open('/tmp/twister-negative-117544/twister.json'))['testsuites']
+          executed = [s for s in suites if s.get('status') != 'filtered']
+          assert len(executed) == 1, 'Expected exactly one regression execution'
+          assert executed[0].get('status') == 'failed', 'Negative control must execute and fail, not merely fail to build'
+          assert any(t.get('status') == 'failed' for t in executed[0]['testcases']), 'No assertion caught the original bug'
+          print('REGRESSION_DETECTED_PR=117544 FIX_SHA=335db4533969eed58f6d879e57402bddf5b1266c')
+          PY
+      - name: Preserve validation reports
+        if: always()
+        uses: actions/upload-artifact@v4
+        with:
+          name: virtio-validation-reports
+          path: |
+            /tmp/twister-*/*.json
+            /tmp/twister-*/**/handler.log
+            /tmp/twister-*/**/build.log
+          if-no-files-found: warn
