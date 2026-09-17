@@ -11,21 +11,21 @@
 #define TEST_NODE DT_NODELABEL(virtio_pci_test)
 
 DEFINE_FFF_GLOBALS;
-FAKE_VOID_FUNC(arch_irq_enable, unsigned int);
+FAKE_VOID_FUNC(__wrap_arch_irq_enable, unsigned int);
 
 ZTEST(virtio_pci_init_irq, test_failed_init_does_not_enable_irq)
 {
 	const struct device *dev = DEVICE_DT_GET(TEST_NODE);
 	int ret;
 
-	RESET_FAKE(arch_irq_enable);
+	RESET_FAKE(__wrap_arch_irq_enable);
 	zassert_false(device_is_ready(dev), "deferred VirtIO PCI device unexpectedly ready");
 	zassert_not_null(dev->ops.init, "VirtIO PCI device has no init callback");
 
 	ret = dev->ops.init(dev);
 
 	zassert_not_equal(ret, 0, "VirtIO PCI transport unexpectedly initialized");
-	zassert_equal(arch_irq_enable_fake.call_count, 0U,
+	zassert_equal(__wrap_arch_irq_enable_fake.call_count, 0U,
 		      "VirtIO PCI IRQ enabled despite failed transport initialization");
 }
 
