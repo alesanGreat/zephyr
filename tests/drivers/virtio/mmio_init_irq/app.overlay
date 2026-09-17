@@ -1,0 +1,10 @@
+/*
+ * SPDX-FileCopyrightText: Copyright The Zephyr Project Contributors
+ *
+ * SPDX-License-Identifier: Apache-2.0
+ */
+
+&virtio_mmio0 {
+	zephyr,deferred-init;
+	status = "okay";
+};
