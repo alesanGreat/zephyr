@@ -1,0 +1,52 @@
+name: Validate VirtIO PCI capability cycle guard
+
+on:
+  push:
+    branches:
+      - validation/virtio-pci-cap-cycle-20260917
+
+permissions:
+  contents: read
+
+jobs:
+  test:
+    runs-on: ubuntu-24.04
+    env:
+      ZEPHYR_TOOLCHAIN_VARIANT: zephyr
+    container:
+      image: ghcr.io/zephyrproject-rtos/ci:v0.29.2
+      options: --user root
+    steps:
+      - name: Checkout
+        uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1
+        with:
+          fetch-depth: 0
+          persist-credentials: false
+
+      - name: Initialize west workspace
+        shell: bash
+        run: |
+          git config --global --add safe.directory "$GITHUB_WORKSPACE"
+          cd ..
+          west init -l "$(basename "$GITHUB_WORKSPACE")"
+          west update --narrow -o=--depth=1
+          west zephyr-export
+
+      - name: Confirm fixed VirtIO PCI capability walker passes
+        shell: bash
+        run: |
+          export ZEPHYR_SDK_INSTALL_DIR="/opt/toolchains/zephyr-sdk-$(cat SDK_VERSION)"
+          west twister -T tests/drivers/virtio/pci_cap_cycle \
+            -p qemu_malta -j 1 --inline-logs -v -O twister-out-fixed
+
+      - name: Confirm regression catches pre-fix walker
+        shell: bash
+        run: |
+          git checkout 7d713288b4baab1cffecadf16f258d9a3885d713 -- drivers/virtio/virtio_pci.c
+          export ZEPHYR_SDK_INSTALL_DIR="/opt/toolchains/zephyr-sdk-$(cat SDK_VERSION)"
+          if west twister -T tests/drivers/virtio/pci_cap_cycle \
+            -p qemu_malta -j 1 --inline-logs -v -O twister-out-prefix; then
+            echo "Regression unexpectedly passes with the pre-fix driver"
+            exit 1
+          fi
+          echo "Regression fails as expected with the pre-fix driver"
